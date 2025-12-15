@@ -138,3 +138,13 @@ export interface DashboardStats {
   pendingReports: number;
   revenue: number;
 }
+
+export interface MediaItem {
+  id: string;
+  name: string;
+  type: 'Image' | 'Document' | 'Video';
+  url: string;
+  size: string;
+  date: string;
+  category: 'Patient' | 'Staff' | 'Marketing' | 'Reports';
+}

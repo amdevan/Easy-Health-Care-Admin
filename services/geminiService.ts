@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Appointment, Article, CMSItem, MembershipRequest, Patient, HealthPackage, HealthPackageRequest, NemtRequest, Doctor, Vehicle, Role, User } from "../types";
+import { Appointment, Article, CMSItem, MembershipRequest, Patient, HealthPackage, HealthPackageRequest, NemtRequest, Doctor, Vehicle, Role, User, MediaItem } from "../types";
 
 // --- Fallback Data ---
 // Used when API keys are missing or network requests fail
@@ -58,9 +58,9 @@ const FALLBACK_APPOINTMENTS: Appointment[] = [
 ];
 
 const FALLBACK_DOCTORS: Doctor[] = [
-  { id: "1", name: "Dr. Gregory House", specialty: "Diagnostician", contact: "555-0199", email: "house@ppth.org", availability: "Mon-Fri, 9AM-5PM", status: "Active", rating: 4.9, experience: "20 years" },
-  { id: "2", name: "Dr. Meredith Grey", specialty: "General Surgery", contact: "555-0123", email: "grey@gsm.org", availability: "Mon-Sat, 8AM-8PM", status: "Active", rating: 4.7, experience: "15 years" },
-  { id: "3", name: "Dr. Derek Shepherd", specialty: "Neurosurgery", contact: "555-0124", email: "shepherd@gsm.org", availability: "On Call", status: "On Leave", rating: 4.8, experience: "18 years" },
+  { id: "1", name: "Dr. Gregory House", specialty: "Diagnostician", contact: "555-0199", email: "house@ppth.org", availability: "Mon-Fri, 9AM-5PM", status: "Active", rating: 4.9, experience: "20 years", image: "https://i.pravatar.cc/150?u=house" },
+  { id: "2", name: "Dr. Meredith Grey", specialty: "General Surgery", contact: "555-0123", email: "grey@gsm.org", availability: "Mon-Sat, 8AM-8PM", status: "Active", rating: 4.7, experience: "15 years", image: "https://i.pravatar.cc/150?u=grey" },
+  { id: "3", name: "Dr. Derek Shepherd", specialty: "Neurosurgery", contact: "555-0124", email: "shepherd@gsm.org", availability: "On Call", status: "On Leave", rating: 4.8, experience: "18 years", image: "https://i.pravatar.cc/150?u=shep" },
   { id: "4", name: "Dr. John Dorian", specialty: "Internal Medicine", contact: "555-0155", email: "jd@sacredheart.org", availability: "Mon-Fri, 10AM-6PM", status: "Active", rating: 4.5, experience: "8 years" },
   { id: "5", name: "Dr. Stephen Strange", specialty: "Neurology", contact: "555-0999", email: "strange@metro.org", availability: "Tue-Thu, 11AM-4PM", status: "Inactive", rating: 5.0, experience: "12 years" },
 ];
@@ -170,6 +170,15 @@ const FALLBACK_USERS: User[] = [
     { id: "5", name: "Dr. Watson", email: "watson@easyhealth.com", role: "Doctor", status: "Pending", lastActive: "Never" },
 ];
 
+const FALLBACK_MEDIA: MediaItem[] = [
+    { id: "1", name: "Clinic_Exterior.jpg", type: "Image", url: "https://picsum.photos/400/300?random=1", size: "2.4 MB", date: "2023-11-01", category: "Marketing" },
+    { id: "2", name: "Patient_Consent_Form.pdf", type: "Document", url: "#", size: "150 KB", date: "2023-10-25", category: "Reports" },
+    { id: "3", name: "Dr_Smith_Portrait.png", type: "Image", url: "https://picsum.photos/400/300?random=2", size: "4.1 MB", date: "2023-10-20", category: "Staff" },
+    { id: "4", name: "XRay_Scan_004.jpg", type: "Image", url: "https://picsum.photos/400/300?random=3", size: "5.5 MB", date: "2023-10-18", category: "Patient" },
+    { id: "5", name: "Annual_Report_2023.pdf", type: "Document", url: "#", size: "12 MB", date: "2023-10-15", category: "Reports" },
+    { id: "6", name: "Lobby_Renovation.mp4", type: "Video", url: "#", size: "45 MB", date: "2023-09-30", category: "Marketing" },
+];
+
 // Helper to safely get API key
 const getApiKey = (): string | undefined => {
   try {
@@ -234,7 +243,7 @@ export const generateDoctors = async (): Promise<Doctor[]> => {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: "Generate 6 realistic doctor profiles for a hospital admin dashboard. Include name, specialty, contact phone, email, availability (e.g. 'Mon-Fri 9-5'), status (Active, On Leave, Inactive), rating (1-5 float), and years of experience.",
+      contents: "Generate 6 realistic doctor profiles for a hospital admin dashboard. Include name, specialty, contact phone, email, availability (e.g. 'Mon-Fri 9-5'), status (Active, On Leave, Inactive), rating (1-5 float), years of experience, and a placeholder image URL (use https://i.pravatar.cc/150?u=randomstring).",
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -250,7 +259,8 @@ export const generateDoctors = async (): Promise<Doctor[]> => {
               availability: { type: Type.STRING },
               status: { type: Type.STRING, enum: ['Active', 'On Leave', 'Inactive'] },
               rating: { type: Type.NUMBER },
-              experience: { type: Type.STRING }
+              experience: { type: Type.STRING },
+              image: { type: Type.STRING }
             },
             required: ["id", "name", "specialty", "contact", "email", "availability", "status", "rating", "experience"]
           }
@@ -700,3 +710,45 @@ export const generateUsers = async (): Promise<User[]> => {
         return FALLBACK_USERS;
     }
 };
+
+export const generateMediaItems = async (): Promise<MediaItem[]> => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        return FALLBACK_MEDIA;
+    }
+
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: "Generate 8 realistic media file records for a CMS. Include id, name, type (Image, Document, Video), url (use realistic placeholders like https://picsum.photos/400/300?random=x for images), size (e.g. 2 MB), date, and category (Patient, Staff, Marketing, Reports).",
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            id: { type: Type.STRING },
+                            name: { type: Type.STRING },
+                            type: { type: Type.STRING, enum: ['Image', 'Document', 'Video'] },
+                            url: { type: Type.STRING },
+                            size: { type: Type.STRING },
+                            date: { type: Type.STRING },
+                            category: { type: Type.STRING, enum: ['Patient', 'Staff', 'Marketing', 'Reports'] }
+                        },
+                        required: ["id", "name", "type", "url", "size", "date", "category"]
+                    }
+                }
+            }
+        });
+
+        if (response.text) {
+            return JSON.parse(response.text) as MediaItem[];
+        }
+        return FALLBACK_MEDIA;
+    } catch (error) {
+        console.warn("Failed to fetch dynamic media (using fallback):", error);
+        return FALLBACK_MEDIA;
+    }
+}

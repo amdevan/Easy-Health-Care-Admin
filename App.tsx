@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, useLocation, useParams, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
-import { Menu, Search, Bell, CheckCircle, Clock, XCircle, AlertCircle, Settings, ChevronDown, ChevronUp, Eye, FileText, Edit2, Trash2, Save, Plus, UserPlus, User, CalendarDays, CheckSquare, Package, Ambulance, Star, Phone, Mail, Stethoscope, Truck, MapPin, Users, Key, CreditCard, Activity, ArrowLeft, Pill, DollarSign, TrendingUp, BarChart3, Filter, Shield, Lock, Upload, Check, RefreshCw, Image as ImageIcon } from 'lucide-react';
-import { generateAppointments, generateArticles, generateCMSContent, generateMembershipRequests, generatePatients, generateHealthPackageRequests, generateNemtRequests, generateDoctors, generateVehicles, generateHealthPackages, generateRoles, generateUsers } from './services/geminiService';
-import { Appointment, Article, CMSItem, MembershipRequest, Patient, HealthPackageRequest, NemtRequest, Doctor, Vehicle, HealthPackage, Role, User as UserType } from './types';
+import { Menu, Search, Bell, CheckCircle, Clock, XCircle, AlertCircle, Settings, ChevronDown, ChevronUp, Eye, FileText, Edit2, Trash2, Save, Plus, UserPlus, User, CalendarDays, CheckSquare, Package, Ambulance, Star, Phone, Mail, Stethoscope, Truck, MapPin, Users, Key, CreditCard, Activity, ArrowLeft, Pill, DollarSign, TrendingUp, BarChart3, Filter, Shield, Lock, Upload, Check, RefreshCw, Image as ImageIcon, Video, File, Crown } from 'lucide-react';
+import { generateAppointments, generateArticles, generateCMSContent, generateMembershipRequests, generatePatients, generateHealthPackageRequests, generateNemtRequests, generateDoctors, generateVehicles, generateHealthPackages, generateRoles, generateUsers, generateMediaItems } from './services/geminiService';
+import { Appointment, Article, CMSItem, MembershipRequest, Patient, HealthPackageRequest, NemtRequest, Doctor, Vehicle, HealthPackage, Role, User as UserType, MediaItem } from './types';
 
 // --- Page Components ---
 
@@ -1237,47 +1237,307 @@ const PatientsPage = () => {
 
 const MembershipRequestsPage = () => {
   const [requests, setRequests] = useState<MembershipRequest[]>([]);
+  const [loading, setLoading] = useState(true);
   
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [planFilter, setPlanFilter] = useState('All');
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<MembershipRequest | null>(null);
+  const [formData, setFormData] = useState<MembershipRequest>({
+      id: '',
+      memberName: '',
+      email: '',
+      planType: 'Basic',
+      status: 'Pending',
+      joinDate: new Date().toISOString().split('T')[0]
+  });
+
   useEffect(() => {
-    generateMembershipRequests().then(setRequests);
+    generateMembershipRequests().then(data => {
+        setRequests(data);
+        setLoading(false);
+    });
   }, []);
+
+  const handleCreate = () => {
+      setEditingRequest(null);
+      setFormData({
+          id: Math.random().toString(36).substr(2, 9),
+          memberName: '',
+          email: '',
+          planType: 'Basic',
+          status: 'Pending',
+          joinDate: new Date().toISOString().split('T')[0]
+      });
+      setIsModalOpen(true);
+  };
+
+  const handleEdit = (req: MembershipRequest) => {
+      setEditingRequest(req);
+      setFormData({ ...req });
+      setIsModalOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+      if (window.confirm('Are you sure you want to delete this request?')) {
+          setRequests(requests.filter(r => r.id !== id));
+      }
+  };
+
+  const handleSave = () => {
+      if (!formData.memberName || !formData.email) return;
+
+      if (editingRequest) {
+          setRequests(requests.map(r => r.id === editingRequest.id ? formData : r));
+      } else {
+          setRequests([formData, ...requests]);
+      }
+      setIsModalOpen(false);
+  };
+
+  // Helper for Plan Badge Colors
+  const getPlanBadgeColor = (plan: string) => {
+      switch (plan) {
+          case 'Platinum': return 'bg-slate-800 text-white border-slate-600';
+          case 'Gold': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+          case 'Silver': return 'bg-gray-100 text-gray-700 border-gray-200';
+          default: return 'bg-blue-50 text-blue-700 border-blue-100';
+      }
+  };
+
+  // Helper for Status Badge Colors
+  const getStatusBadgeColor = (status: string) => {
+      switch (status) {
+          case 'Active': return 'bg-green-100 text-green-700';
+          case 'Pending': return 'bg-yellow-100 text-yellow-700';
+          case 'Expired': return 'bg-red-100 text-red-700';
+          case 'Cancelled': return 'bg-gray-100 text-gray-600';
+          default: return 'bg-gray-100 text-gray-600';
+      }
+  };
+
+  const filteredRequests = requests.filter(req => {
+      const matchesSearch = req.memberName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            req.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'All' || req.status === statusFilter;
+      const matchesPlan = planFilter === 'All' || req.planType === planFilter;
+      return matchesSearch && matchesStatus && matchesPlan;
+  });
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">Membership Requests</h1>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
-                <tr>
-                    <th className="px-6 py-4">Name</th>
-                    <th className="px-6 py-4">Email</th>
-                    <th className="px-6 py-4">Plan</th>
-                    <th className="px-6 py-4">Join Date</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4 text-right">Action</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-                {requests.map(req => (
-                    <tr key={req.id} className="hover:bg-gray-50/50">
-                        <td className="px-6 py-4 font-medium text-gray-900">{req.memberName}</td>
-                        <td className="px-6 py-4 text-gray-600">{req.email}</td>
-                        <td className="px-6 py-4 text-gray-600">{req.planType}</td>
-                        <td className="px-6 py-4 text-gray-600">{req.joinDate}</td>
-                        <td className="px-6 py-4">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                req.status === 'Active' ? 'bg-green-100 text-green-700' : 
-                                req.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
-                            }`}>{req.status}</span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                             <button className="text-blue-600 hover:text-blue-800 font-medium text-xs">Manage</button>
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
-          </table>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+            <h1 className="text-2xl font-bold text-gray-800">Membership Management</h1>
+            <p className="text-gray-500 text-sm">Manage member applications, renewals, and statuses.</p>
+        </div>
+        <button 
+            onClick={handleCreate}
+            className="bg-orange-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-600 flex items-center gap-2 shadow-sm transition-colors"
+        >
+            <Plus size={16} /> New Membership
+        </button>
       </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          {/* Toolbar */}
+          <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50/50">
+                <div className="relative flex-1 w-full md:w-auto">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                        type="text" 
+                        placeholder="Search members..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 w-full md:w-64 shadow-sm bg-white"
+                    />
+                </div>
+                <div className="flex gap-2 w-full md:w-auto">
+                     <select 
+                        value={planFilter}
+                        onChange={(e) => setPlanFilter(e.target.value)}
+                        className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 text-gray-600 cursor-pointer shadow-sm"
+                    >
+                        <option value="All">All Plans</option>
+                        <option value="Platinum">Platinum</option>
+                        <option value="Gold">Gold</option>
+                        <option value="Silver">Silver</option>
+                        <option value="Basic">Basic</option>
+                    </select>
+                    <select 
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 text-gray-600 cursor-pointer shadow-sm"
+                    >
+                        <option value="All">All Status</option>
+                        <option value="Active">Active</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Expired">Expired</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
+                    <tr>
+                        <th className="px-6 py-4">Member Name</th>
+                        <th className="px-6 py-4">Contact Info</th>
+                        <th className="px-6 py-4">Plan Type</th>
+                        <th className="px-6 py-4">Join Date</th>
+                        <th className="px-6 py-4">Status</th>
+                        <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                    {loading ? (
+                        <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-400">Loading memberships...</td></tr>
+                    ) : filteredRequests.length === 0 ? (
+                        <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-400">No members found matching filters.</td></tr>
+                    ) : (
+                        filteredRequests.map(req => (
+                            <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
+                                <td className="px-6 py-4">
+                                    <div className="font-medium text-gray-900">{req.memberName}</div>
+                                </td>
+                                <td className="px-6 py-4 text-gray-600">
+                                    <div className="flex items-center gap-2">
+                                        <Mail size={14} className="text-gray-400" />
+                                        {req.email}
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getPlanBadgeColor(req.planType)}`}>
+                                        {req.planType === 'Platinum' || req.planType === 'Gold' ? <Crown size={12} fill="currentColor" /> : <Shield size={12} />}
+                                        {req.planType}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-gray-600 font-mono text-xs">{req.joinDate}</td>
+                                <td className="px-6 py-4">
+                                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadgeColor(req.status)}`}>
+                                        {req.status}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                    <div className="flex justify-end gap-2">
+                                        <button 
+                                            onClick={() => handleEdit(req)}
+                                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                                            title="Edit Membership"
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleDelete(req.id)}
+                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                            title="Remove Member"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))
+                    )}
+                </tbody>
+            </table>
+          </div>
+      </div>
+
+      {/* Edit/Create Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h3 className="font-bold text-gray-900">{editingRequest ? 'Edit Membership' : 'New Membership'}</h3>
+                    <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                        <XCircle size={20} />
+                    </button>
+                </div>
+                
+                <div className="p-6 space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Member Name</label>
+                        <input 
+                            type="text"
+                            value={formData.memberName}
+                            onChange={(e) => setFormData({...formData, memberName: e.target.value})}
+                            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-100 outline-none text-sm"
+                            placeholder="John Doe"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                        <input 
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({...formData, email: e.target.value})}
+                            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-100 outline-none text-sm"
+                            placeholder="john@example.com"
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Plan Type</label>
+                            <select 
+                                value={formData.planType}
+                                onChange={(e) => setFormData({...formData, planType: e.target.value as any})}
+                                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-100 outline-none text-sm bg-white"
+                            >
+                                <option value="Basic">Basic</option>
+                                <option value="Silver">Silver</option>
+                                <option value="Gold">Gold</option>
+                                <option value="Platinum">Platinum</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                            <select 
+                                value={formData.status}
+                                onChange={(e) => setFormData({...formData, status: e.target.value as any})}
+                                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-100 outline-none text-sm bg-white"
+                            >
+                                <option value="Pending">Pending</option>
+                                <option value="Active">Active</option>
+                                <option value="Expired">Expired</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Join Date</label>
+                        <input 
+                            type="date"
+                            value={formData.joinDate}
+                            onChange={(e) => setFormData({...formData, joinDate: e.target.value})}
+                            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-100 outline-none text-sm text-gray-600"
+                        />
+                    </div>
+                </div>
+
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                    <button 
+                        onClick={() => setIsModalOpen(false)}
+                        className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={handleSave}
+                        className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg shadow-sm transition-colors flex items-center gap-2"
+                    >
+                        <Save size={16} />
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -2204,6 +2464,110 @@ const UsersPage = () => {
     );
 };
 
+const MediaPage = () => {
+    const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+    const [filterCategory, setFilterCategory] = useState('All');
+    const [searchTerm, setSearchTerm] = useState('');
+
+    useEffect(() => {
+        generateMediaItems().then(setMediaItems);
+    }, []);
+
+    const filteredMedia = mediaItems.filter(item => 
+        (filterCategory === 'All' || item.category === filterCategory) &&
+        (item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    return (
+        <div className="p-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-800">Media Library</h1>
+                    <p className="text-gray-500 text-sm">Manage images, documents, and videos.</p>
+                </div>
+                <button className="bg-orange-500 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-600 flex items-center gap-2">
+                    <Upload size={16} /> <span className="hidden sm:inline">Upload New</span>
+                </button>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+                 <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                        type="text" 
+                        placeholder="Search files..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-orange-200 w-full shadow-sm"
+                    />
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
+                    {['All', 'Patient', 'Staff', 'Marketing', 'Reports'].map(cat => (
+                        <button 
+                            key={cat}
+                            onClick={() => setFilterCategory(cat)}
+                            className={`px-3 py-1.5 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
+                                filterCategory === cat 
+                                ? 'bg-gray-800 text-white shadow-sm' 
+                                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                            }`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {filteredMedia.map(item => (
+                    <div key={item.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all group relative">
+                        <div className="aspect-square bg-gray-50 flex items-center justify-center overflow-hidden relative">
+                            {item.type === 'Image' ? (
+                                <img src={item.url} alt={item.name} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" />
+                            ) : (
+                                <div className="text-gray-400 flex flex-col items-center gap-2 group-hover:text-orange-500 transition-colors">
+                                    {item.type === 'Video' ? <Video size={32} /> : <FileText size={32} />}
+                                    <span className="text-xs uppercase font-bold">{item.type}</span>
+                                </div>
+                            )}
+                            
+                            {/* Overlay Actions */}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                                <button className="p-2 bg-white rounded-full text-gray-700 hover:text-blue-600 shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform duration-200">
+                                    <Eye size={16} />
+                                </button>
+                                <button className="p-2 bg-white rounded-full text-gray-700 hover:text-red-600 shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform duration-200 delay-75">
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-3">
+                            <h3 className="text-sm font-medium text-gray-900 truncate mb-1" title={item.name}>{item.name}</h3>
+                            <div className="flex justify-between items-center text-[10px] text-gray-500 font-medium">
+                                <span>{item.size}</span>
+                                <span>{item.date}</span>
+                            </div>
+                            <div className="mt-2">
+                                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600">
+                                    {item.category}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+                {filteredMedia.length === 0 && (
+                     <div className="col-span-full py-12 text-center text-gray-400 flex flex-col items-center">
+                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-2">
+                             <Search size={24} className="opacity-20" />
+                        </div>
+                        <p>No media found.</p>
+                     </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 // --- Main App Component ---
 
 const App = () => {
@@ -2237,6 +2601,7 @@ const App = () => {
                <Route path="/health-packages" element={<HealthPackagesPage />} />
                <Route path="/nemt-requests" element={<NemtRequestsPage />} />
                <Route path="/articles" element={<ArticlesPage />} />
+               <Route path="/media" element={<MediaPage />} />
                <Route path="/roles" element={<RolesPage />} />
                <Route path="/users" element={<UsersPage />} />
                {/* CMS Routes */}
